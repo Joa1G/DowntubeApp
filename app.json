@@ -4,11 +4,11 @@
     "slug": "downtube-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/downtube-icon.png",
+    "icon": "./assets/icons/downtube-splash-icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/downtube-icon.png",
+      "image": "./assets/icons/downtube-splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#a6a6a6"
     },
@@ -17,9 +17,12 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/downtube-icon.png",
+        "foregroundImage": "./assets/icons/downtube-splash-icon.png",
         "backgroundColor": "#a6a6a6"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
