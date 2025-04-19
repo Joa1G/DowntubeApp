@@ -22,7 +22,14 @@
       }
     },
     "plugins": [
-      "expo-font"
-    ]
+      "expo-font",
+      "expo-router"
+    ],
+    "extra": {
+      "router": {
+        "root": "./src/app"
+      }
+    },
+    "scheme": "meuapp"
   }
 }

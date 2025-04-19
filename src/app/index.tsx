@@ -1,5 +1,4 @@
 import { StatusBar } from 'expo-status-bar';
-import { Text, TextInput, View } from 'react-native';
 import { Cabecalho } from '../components/header'
 import { styles } from './styles';
 import { useFonts, Roboto_400Regular, Roboto_700Bold } from '@expo-google-fonts/roboto';
@@ -31,7 +30,6 @@ export default function App() {
         <SafeAreaProvider style={styles.container}>
         <Cabecalho/>
         <InputURL/>
-        
         <StatusBar style="auto" backgroundColor='#1E201E'/>
       </SafeAreaProvider>
     </LinearGradient>
