@@ -12,7 +12,8 @@ export type AudioFormat = {
     format_id: string;
     ext: string;
     abr: number;
-    file_size: number;
+    filesize: number;
+    filesize_human: string;
     format_note: string;
     url: string;
 }
@@ -23,7 +24,8 @@ export type VideoFormart = {
     abr: number;
     vcodec: string;
     acodec: string;
-    file_size: number;
+    filesize: number;
+    filesize_human: string;
     format_note: string;
     url: string;
 }
