@@ -1,3 +1,4 @@
+import React from 'react';
 import { Cabecalho } from '../../components/header/index';
 import { styles } from './styles';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -5,12 +6,19 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ioicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Text, TouchableOpacity, View, Image, ActivityIndicator, FlatList } from 'react-native';
+import { Text, TouchableOpacity, View, Image, ActivityIndicator, FlatList, Modal, Animated } from 'react-native';
 import { encodeURLSpecialChars } from '../../utils/encondeURLSpecialChars';
 import { useEffect, useState } from 'react';
 import { getAudioInfoVideo, getVideoInfoVideo } from '../../services/ytdlpapi.service';
 import { Info } from '../../types/types';
-import { Linking } from 'react-native';
+import { Alert } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+
+interface DownloadProgress {
+  totalBytesWritten: number;
+  totalBytesExpectedToWrite: number;
+}
 
 export default function DownloadPage() {
   const { url } = useLocalSearchParams();
@@ -18,10 +26,82 @@ export default function DownloadPage() {
   const [audioVideoInfo, setAudioVideoInfo] = useState<Info | null>(null);
   const [videoInfo, setVideoInfo] = useState<Info | null>(null);
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedUrl, setSelectedUrl] = useState('');
+  const [selectedFilename, setSelectedFilename] = useState('');
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadResumable, setDownloadResumable] = useState<FileSystem.DownloadResumable | null>(null);
   const encodedUrl = encodeURLSpecialChars(url as string);
 
   const handleNavigation = () => {
     router.back();
+  };
+
+  const handleDownload = async (url: string, filename: string) => {
+    try {
+      setIsDownloading(true);
+      setDownloadProgress(0);
+      
+      // 1. Baixar o arquivo para o diretório temporário do app
+      const fileUri = FileSystem.cacheDirectory + filename;
+      
+      // 2. Fazer o download com progresso
+      const resumable = FileSystem.createDownloadResumable(
+        url,
+        fileUri,
+        {},
+        (progress) => {
+          const progressPercent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
+          setDownloadProgress(progressPercent);
+        }
+      );
+
+      setDownloadResumable(resumable);
+      const downloadRes = await resumable.downloadAsync();
+
+      if (!downloadRes) {
+        throw new Error('Download falhou');
+      }
+
+      // 3. Verificar se o Sharing está disponível
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Erro', 'Compartilhamento não disponível neste dispositivo');
+        return;
+      }
+  
+      // 4. Abrir o menu de compartilhamento
+      await Sharing.shareAsync(downloadRes.uri, {
+        dialogTitle: 'Salvar arquivo',
+        UTI: '*/*',
+        mimeType: '*/*',
+      });
+  
+    } catch (error: any) {
+      if (error.message !== 'Download cancelado') {
+        console.error('Erro:', error);
+        Alert.alert('Erro', 'Não foi possível baixar ou compartilhar o arquivo');
+      }
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+      setDownloadResumable(null);
+    }
+  };
+
+  const handleCancelDownload = async () => {
+    if (downloadResumable) {
+      try {
+        await downloadResumable.cancelAsync();
+        Alert.alert('Download cancelado', 'O download foi cancelado com sucesso');
+      } catch (error) {
+        console.error('Erro ao cancelar download:', error);
+      }
+    }
+    setIsDownloading(false);
+    setDownloadProgress(0);
+    setDownloadResumable(null);
+    setModalVisible(false);
   };
 
   useEffect(() => {
@@ -43,6 +123,16 @@ export default function DownloadPage() {
   }, [encodedUrl]);
 
   const columns = 2;
+
+  const handleOpenModal = (url: string, filename: string) => {
+    setSelectedUrl(url);
+    setSelectedFilename(filename);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+  };
 
   return (
     <LinearGradient style={{ flex: 1 }} colors={['#1E201E', '#a6a6a6', '#1E201E']}>
@@ -81,13 +171,16 @@ export default function DownloadPage() {
               data={audioVideoInfo.audio_formats.filter(item => item.ext !== 'mhtml')}
               keyExtractor={(item) => item.format_id}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.audioInfoButton} onPress={() => Linking.openURL(item.url)}>
+                <TouchableOpacity 
+                  style={styles.audioInfoButton} 
+                  onPress={() => handleOpenModal(item.url, `${audioVideoInfo.title}-Audio.${item.ext}`)}
+                >
                   <Text style={styles.infoVideo}>{(item.ext.toUpperCase())}</Text>
                   <Text style={styles.infoVideo}>Bitrate: {item.abr} kbps</Text>
                   <Text style={styles.infoVideo}>Qualidade: {item.format_note}</Text>
                 </TouchableOpacity>
               )}
-              contentContainerStyle={{ paddingBottom: 50 }} // espaço extra no final
+              contentContainerStyle={{ paddingBottom: 50 }}
               numColumns={columns}
             />
 
@@ -99,14 +192,72 @@ export default function DownloadPage() {
               data={videoInfo?.video_formats}
               keyExtractor={(item) => item.format_id}
               renderItem={({ item }) => (
-                <TouchableOpacity style={[styles.audioInfoButton, {backgroundColor: '#8E1616'}]} onPress={() => Linking.openURL(item.url)}>
+                <TouchableOpacity 
+                  style={[styles.audioInfoButton, {backgroundColor: '#8E1616'}]}
+                  onPress={() => handleOpenModal(item.url, `${audioVideoInfo.title}-Video.${item.ext}`)}
+                >
                   <Text style={styles.infoVideo}>{(item.ext.toUpperCase())}</Text>
                   <Text style={styles.infoVideo}>Tamanho: {item.file_size || 'sem informações'}</Text>
                   <Text style={styles.infoVideo}>Qualidade: {item.format_note}</Text>
                 </TouchableOpacity>
               )}
-              contentContainerStyle={{ paddingBottom: 50 }} // espaço extra no final
+              contentContainerStyle={{ paddingBottom: 50 }}
             />
+
+            <Modal
+              animationType="slide"
+              transparent={true}
+              visible={modalVisible}
+              onRequestClose={handleCloseModal}
+            >
+              <View style={styles.modalContainer}>
+                <View style={styles.modalContent}>
+                  {isDownloading ? (
+                    <>
+                      <Text style={styles.modalTitle}>Download em andamento</Text>
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressBarBackground}>
+                          <Animated.View 
+                            style={[
+                              styles.progressBarFill,
+                              { width: `${downloadProgress * 100}%` }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={styles.progressText}>
+                          {Math.round(downloadProgress * 100)}%
+                        </Text>
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={handleCancelDownload}
+                      >
+                        <Text style={styles.cancelButtonText}>Cancelar Download</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.modalTitle}>Iniciar Download</Text>
+                      <Text style={styles.modalText}>Deseja baixar este arquivo?</Text>
+                      <TouchableOpacity 
+                        style={styles.downloadButton}
+                        onPress={() => {
+                          handleDownload(selectedUrl, selectedFilename);
+                        }}
+                      >
+                        <Text style={styles.downloadButtonText}>Download</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={handleCloseModal}
+                      >
+                        <Text style={styles.cancelButtonText}>Cancelar</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              </View>
+            </Modal>
 
           </View>
         ) : (

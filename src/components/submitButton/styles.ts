@@ -13,6 +13,6 @@ export const styles = StyleSheet.create({
     textButton:{
         fontSize: 20,
         color: '#fff',
-        fontFamily: 'Roboto_400Regular'
+        fontFamily: 'Roboto_700Bold'
     }
 })
