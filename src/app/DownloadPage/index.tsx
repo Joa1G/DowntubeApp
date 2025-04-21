@@ -178,6 +178,7 @@ export default function DownloadPage() {
                   <Text style={styles.infoVideo}>{(item.ext.toUpperCase())}</Text>
                   <Text style={styles.infoVideo}>Bitrate: {item.abr} kbps</Text>
                   <Text style={styles.infoVideo}>Qualidade: {item.format_note}</Text>
+                  <Text style={styles.infoVideo}>Tamanho: {item.filesize_human}</Text>
                 </TouchableOpacity>
               )}
               contentContainerStyle={{ paddingBottom: 50 }}
@@ -197,8 +198,8 @@ export default function DownloadPage() {
                   onPress={() => handleOpenModal(item.url, `${audioVideoInfo.title}-Video.${item.ext}`)}
                 >
                   <Text style={styles.infoVideo}>{(item.ext.toUpperCase())}</Text>
-                  <Text style={styles.infoVideo}>Tamanho: {item.file_size || 'sem informações'}</Text>
                   <Text style={styles.infoVideo}>Qualidade: {item.format_note}</Text>
+                  <Text style={styles.infoVideo}>Tamanho: {item.filesize_human}</Text>
                 </TouchableOpacity>
               )}
               contentContainerStyle={{ paddingBottom: 50 }}
