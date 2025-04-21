@@ -8,6 +8,7 @@ export const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         position: 'absolute',
+        flex: 1
     },
     headingText:{
         fontSize: 22,

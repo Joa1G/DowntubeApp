@@ -16,17 +16,20 @@ export const styles = StyleSheet.create({
         padding: 10,
     },
     loadedInfoContainer: {
-        padding: 10,
-        paddingTop: 250,
-        width: '95%'
+        padding: 5,
+        width: '95%',
+        flex: 1,
+        marginTop: 60
     },
     titleVideo: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#fff'
+        color: '#fff',
+        fontFamily: "Roboto_700Bold"
     },
     infoVideo: {
-        color: '#fff'
+        color: '#fff',
+        fontWeight: 'bold'
     },
     thumbnail: {
         width: '100%',
@@ -40,10 +43,12 @@ export const styles = StyleSheet.create({
         color: '#fff' 
     },
     audioInfoButton: {
-        marginVertical: 8,
-        padding: 5,
         backgroundColor: '#19376D',
-        borderRadius: 8
+        flex: 1,
+        margin: 8,
+        padding: 10,
+        borderRadius: 8,
+
     },
     errorText: {
         color: 'red',
