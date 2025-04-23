@@ -33,6 +33,10 @@ export default function DownloadPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadResumable, setDownloadResumable] = useState<FileSystem.DownloadResumable | null>(null);
   const encodedUrl = encodeURLSpecialChars(url as string);
+  const [totalBytesWritten, setTotalBytesWritten] = useState(0);
+  const [totalBytesExpectedToWrite, setTotalBytesExpectedToWrite] = useState(1); // evita divisão por zero
+  const [downloadCompleted, setDownloadCompleted] = useState(false);
+
 
   const handleNavigation = () => {
     router.back();
@@ -42,40 +46,54 @@ export default function DownloadPage() {
     try {
       setIsDownloading(true);
       setDownloadProgress(0);
-      
-      // 1. Baixar o arquivo para o diretório temporário do app
-      const fileUri = FileSystem.cacheDirectory + filename;
-      
-      // 2. Fazer o download com progresso
+      setTotalBytesWritten(0);
+      setTotalBytesExpectedToWrite(1); // evita divisão por 0 no início
+  
+      const fileUri = FileSystem.documentDirectory + filename;
+      let lastUpdate = Date.now();
+  
+      const progressCallback = (progress: DownloadProgress) => {
+        const now = Date.now();
+        if (now - lastUpdate > 300) { // atualiza no máx. a cada 300ms
+          lastUpdate = now;
+          const progressPercent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
+          setDownloadProgress(progressPercent);
+          setTotalBytesWritten(progress.totalBytesWritten);
+          setTotalBytesExpectedToWrite(progress.totalBytesExpectedToWrite);
+        }
+      };
+  
       const resumable = FileSystem.createDownloadResumable(
         url,
         fileUri,
-        {},
-        (progress) => {
-          const progressPercent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
-          setDownloadProgress(progressPercent);
-        }
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+          },
+        },
+        progressCallback
       );
-
+  
       setDownloadResumable(resumable);
       const downloadRes = await resumable.downloadAsync();
-
+  
       if (!downloadRes) {
         throw new Error('Download falhou');
       }
-
-      // 3. Verificar se o Sharing está disponível
+  
       if (!(await Sharing.isAvailableAsync())) {
         Alert.alert('Erro', 'Compartilhamento não disponível neste dispositivo');
         return;
       }
   
-      // 4. Abrir o menu de compartilhamento
       await Sharing.shareAsync(downloadRes.uri, {
         dialogTitle: 'Salvar arquivo',
         UTI: '*/*',
         mimeType: '*/*',
       });
+      
+      setDownloadCompleted(true);
+      setIsDownloading(false);
   
     } catch (error: any) {
       if (error.message !== 'Download cancelado') {
@@ -83,9 +101,13 @@ export default function DownloadPage() {
         Alert.alert('Erro', 'Não foi possível baixar ou compartilhar o arquivo');
       }
     } finally {
-      setIsDownloading(false);
-      setDownloadProgress(0);
-      setDownloadResumable(null);
+      if (!downloadCompleted) {
+        setIsDownloading(false);
+        setDownloadProgress(0);
+        setDownloadResumable(null);
+        setTotalBytesWritten(0);
+        setTotalBytesExpectedToWrite(1);
+      }
     }
   };
 
@@ -213,20 +235,35 @@ export default function DownloadPage() {
             >
               <View style={styles.modalContainer}>
                 <View style={styles.modalContent}>
-                  {isDownloading ? (
+                  {downloadCompleted ? (
+                    <>
+                      <Text style={styles.modalTitle}>Download Concluído!</Text>
+                      <Text style={styles.modalText}>O arquivo foi baixado com sucesso.</Text>
+                      <TouchableOpacity 
+                        style={styles.downloadButton}
+                        onPress={() => {
+                          setModalVisible(false);
+                          setDownloadCompleted(false);
+                        }}
+                      >
+                        <Text style={styles.downloadButtonText}>OK</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : isDownloading ? (
                     <>
                       <Text style={styles.modalTitle}>Download em andamento</Text>
                       <View style={styles.progressContainer}>
                         <View style={styles.progressBarBackground}>
-                          <Animated.View 
+                          <Animated.View
                             style={[
                               styles.progressBarFill,
                               { width: `${downloadProgress * 100}%` }
-                            ]} 
+                            ]}
                           />
                         </View>
                         <Text style={styles.progressText}>
-                          {Math.round(downloadProgress * 100)}%
+                          {Math.round(downloadProgress * 100)}% (
+                          {(totalBytesWritten / (1024 * 1024)).toFixed(2)}MB de {(totalBytesExpectedToWrite / (1024 * 1024)).toFixed(2)}MB)
                         </Text>
                       </View>
                       <TouchableOpacity 
