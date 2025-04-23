@@ -30,7 +30,7 @@ export default function App() {
         <SafeAreaProvider style={styles.container}>
         <Cabecalho/>
         <InputURL/>
-        <StatusBar style="auto" backgroundColor='#1E201E'/>
+        <StatusBar style="light" backgroundColor='#1E201E'/>
       </SafeAreaProvider>
     </LinearGradient>
   );

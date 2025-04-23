@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ioicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Text, TouchableOpacity, View, Image, ActivityIndicator, FlatList, Modal, Animated } from 'react-native';
+import { Text, TouchableOpacity, View, Image, ActivityIndicator, FlatList, Modal, Animated, Platform } from 'react-native';
 import { encodeURLSpecialChars } from '../../utils/encondeURLSpecialChars';
 import { useEffect, useState } from 'react';
 import { getAudioInfoVideo, getVideoInfoVideo } from '../../services/ytdlpapi.service';
@@ -14,6 +14,7 @@ import { Info } from '../../types/types';
 import { Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 
 interface DownloadProgress {
   totalBytesWritten: number;
@@ -47,14 +48,21 @@ export default function DownloadPage() {
       setIsDownloading(true);
       setDownloadProgress(0);
       setTotalBytesWritten(0);
-      setTotalBytesExpectedToWrite(1); // evita divisão por 0 no início
-  
-      const fileUri = FileSystem.documentDirectory + filename;
+      setTotalBytesExpectedToWrite(1);
+
+      let fileUri;
+      if (Platform.OS === 'android') {
+        // No Android, baixamos primeiro para o diretório temporário
+        fileUri = FileSystem.cacheDirectory + filename;
+      } else {
+        fileUri = FileSystem.documentDirectory + filename;
+      }
+
       let lastUpdate = Date.now();
-  
+
       const progressCallback = (progress: DownloadProgress) => {
         const now = Date.now();
-        if (now - lastUpdate > 300) { // atualiza no máx. a cada 300ms
+        if (now - lastUpdate > 300) {
           lastUpdate = now;
           const progressPercent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
           setDownloadProgress(progressPercent);
@@ -62,7 +70,7 @@ export default function DownloadPage() {
           setTotalBytesExpectedToWrite(progress.totalBytesExpectedToWrite);
         }
       };
-  
+
       const resumable = FileSystem.createDownloadResumable(
         url,
         fileUri,
@@ -73,32 +81,63 @@ export default function DownloadPage() {
         },
         progressCallback
       );
-  
+
       setDownloadResumable(resumable);
       const downloadRes = await resumable.downloadAsync();
-  
+
       if (!downloadRes) {
         throw new Error('Download falhou');
       }
-  
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('Erro', 'Compartilhamento não disponível neste dispositivo');
-        return;
+
+      if (Platform.OS === 'android') {
+        try {
+          // No Android, usamos o StorageAccessFramework para salvar o arquivo
+          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+          
+          if (!permissions.granted) {
+            Alert.alert('Permissão necessária', 'É necessário permitir o acesso aos arquivos para salvar o download.');
+            return;
+          }
+
+          const directoryUri = permissions.directoryUri;
+          const fileContent = await FileSystem.readAsStringAsync(downloadRes.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          await FileSystem.StorageAccessFramework.createFileAsync(
+            directoryUri,
+            filename,
+            '*/*'
+          ).then(async (uri) => {
+            await FileSystem.writeAsStringAsync(uri, fileContent, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            Alert.alert('Sucesso', 'Arquivo salvo com sucesso');
+          });
+        } catch (error) {
+          console.error('Erro ao salvar o arquivo:', error);
+          Alert.alert('Erro', 'Não foi possível salvar o arquivo. Verifique as permissões do aplicativo.');
+        }
+      } else {
+        if (!(await Sharing.isAvailableAsync())) {
+          Alert.alert('Erro', 'Compartilhamento não disponível neste dispositivo');
+          return;
+        }
+
+        await Sharing.shareAsync(downloadRes.uri, {
+          dialogTitle: 'Salvar arquivo',
+          UTI: '*/*',
+          mimeType: '*/*',
+        });
       }
-  
-      await Sharing.shareAsync(downloadRes.uri, {
-        dialogTitle: 'Salvar arquivo',
-        UTI: '*/*',
-        mimeType: '*/*',
-      });
       
       setDownloadCompleted(true);
       setIsDownloading(false);
-  
+
     } catch (error: any) {
       if (error.message !== 'Download cancelado') {
         console.error('Erro:', error);
-        Alert.alert('Erro', 'Não foi possível baixar ou compartilhar o arquivo');
+        Alert.alert('Erro', 'Não foi possível baixar o arquivo');
       }
     } finally {
       if (!downloadCompleted) {
@@ -157,9 +196,9 @@ export default function DownloadPage() {
   };
 
   return (
-    <LinearGradient style={{ flex: 1 }} colors={['#1E201E', '#a6a6a6', '#1E201E']}>
+    <ExpoLinearGradient style={{ flex: 1 }} colors={['#1E201E', '#a6a6a6', '#1E201E']}>
       <SafeAreaProvider style={styles.container}>
-        <StatusBar style="auto" backgroundColor="#1E201E" />
+        <StatusBar style="light" backgroundColor="#1E201E" />
 
         <Cabecalho />
         
@@ -172,18 +211,20 @@ export default function DownloadPage() {
           <ActivityIndicator size="large" color="#000" style={{ marginTop: 20 }} />
         ) : audioVideoInfo ? (
           <View style={styles.loadedInfoContainer}>
+            
             <Text style={styles.titleVideo}>{audioVideoInfo.title}</Text>
-            <Text style={styles.infoVideo}>Canal: {audioVideoInfo.uploader}</Text>
-            <Text style={styles.infoVideo}>
-              Duração: {Math.floor(audioVideoInfo.duration / 60)}m {audioVideoInfo.duration % 60}s
-            </Text>
-            <Text style={styles.infoVideo}>Visualizações: {audioVideoInfo.view_count.toLocaleString('pt-br')}</Text>
 
             <Image
               source={{ uri: audioVideoInfo.thumbnail }}
               style={styles.thumbnail}
               resizeMode="cover"
             />
+
+            <Text style={styles.infoVideo}>Canal: {audioVideoInfo.uploader}</Text>
+            <Text style={styles.infoVideo}>
+              Duração: {Math.floor(audioVideoInfo.duration / 60)}m {audioVideoInfo.duration % 60}s
+            </Text>
+            <Text style={styles.infoVideo}>Visualizações: {audioVideoInfo.view_count.toLocaleString('pt-br')}</Text>
 
             <Text style={styles.subtitle}>
               Formatos de Áudio:
@@ -302,6 +343,6 @@ export default function DownloadPage() {
           <Text style={styles.errorText}>Erro ao carregar informações do vídeo.</Text>
         )}
       </SafeAreaProvider>
-    </LinearGradient>
+    </ExpoLinearGradient>
   );
 }

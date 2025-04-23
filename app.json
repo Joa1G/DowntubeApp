@@ -19,7 +19,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/icons/downtube-splash-icon.png",
         "backgroundColor": "#a6a6a6"
-      }
+      },
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "plugins": [
       "expo-font",
