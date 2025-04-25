@@ -23,7 +23,8 @@
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "package": "com.joa1g.downtubeapp"
     },
     "plugins": [
       "expo-font",
@@ -31,7 +32,11 @@
     ],
     "extra": {
       "router": {
-        "root": "./src/app"
+        "root": "./src/app",
+        "origin": false
+      },
+      "eas": {
+        "projectId": "34eca409-b398-4a12-822a-7ae6bb44b372"
       }
     },
     "scheme": "meuapp"

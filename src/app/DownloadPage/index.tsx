@@ -3,7 +3,6 @@ import { Cabecalho } from '../../components/header/index';
 import { styles } from './styles';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ioicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Text, TouchableOpacity, View, Image, ActivityIndicator, FlatList, Modal, Animated, Platform } from 'react-native';
